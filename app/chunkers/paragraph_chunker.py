@@ -19,15 +19,24 @@ class ParagraphChunker(BaseChunker):
                 para_text = ""
                 bbox = None
 
+                # Collect all line bboxes to compute paragraph bbox
+                line_bboxes = []
                 for line in block["lines"]:
                     for span in line["spans"]:
                         para_text += span["text"] + " "
-                    if bbox is None:
-                        bbox = line["bbox"]
+                    line_bboxes.append(line["bbox"])
 
                 para_text = para_text.strip()
                 if not para_text:
                     continue
+
+                # Compute bounding box that encompasses all lines
+                if line_bboxes:
+                    x0 = min(bbox[0] for bbox in line_bboxes)
+                    y0 = min(bbox[1] for bbox in line_bboxes)
+                    x1 = max(bbox[2] for bbox in line_bboxes)
+                    y1 = max(bbox[3] for bbox in line_bboxes)
+                    bbox = (x0, y0, x1, y1)
 
                 chunks.append({
                     "text": para_text,
