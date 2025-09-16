@@ -43,9 +43,8 @@ class DpkChunker(BaseChunker):
 
         # Prepare pipeline subdirectories
         output_parquet_dir = os.path.join(self.output_dir, "01_parquet_out")
-        output_exact_dedupe_dir = os.path.join(self.output_dir, "02_dedupe_out")
-        output_chunk_dir = os.path.join(self.output_dir, "03_chunk_out")
-        for folder in [output_parquet_dir, output_exact_dedupe_dir, output_chunk_dir]:
+        output_chunk_dir = os.path.join(self.output_dir, "02_chunk_out")  # Skip dedupe step
+        for folder in [output_parquet_dir, output_chunk_dir]:
             os.makedirs(folder, exist_ok=True)
 
         # --- Step 1: PDF → Parquet ---
@@ -54,24 +53,25 @@ class DpkChunker(BaseChunker):
             output_folder=output_parquet_dir,
             data_files_to_use=[".pdf"],
             pdf2parquet_do_ocr=False,
-            pdf2parquet_contents_type=pdf2parquet_contents_types.JSON,
+            pdf2parquet_contents_type=pdf2parquet_contents_types.JSON,  # Use JSON to preserve layout/bbox info
         ).transform()
 
-        # --- Step 2: Deduplicate ---
-        Ededup(
-            input_folder=output_parquet_dir,
-            output_folder=output_exact_dedupe_dir,
-            ededup_doc_column="contents",
-            ededup_doc_id_column="document_id",
-        ).transform()
+        # --- Step 2: Skip Deduplicate (it's removing pages) ---
+        # Skip deduplication to avoid losing pages
+        # Ededup(
+        #     input_folder=output_parquet_dir,
+        #     output_folder=output_exact_dedupe_dir,
+        #     ededup_doc_column="contents",
+        #     ededup_doc_id_column="document_id",
+        # ).transform()
 
         # --- Step 3: Chunking ---
         DocChunk(
-            input_folder=output_exact_dedupe_dir,
+            input_folder=output_parquet_dir,  # Use parquet output directly
             output_folder=output_chunk_dir,
-            doc_chunk_chunking_type="dl_json",  # JSON mode
-            doc_chunk_chunk_size_tokens=128,
-            doc_chunk_chunk_overlap_tokens=30,
+            doc_chunk_chunking_type="dl_json",  # Use dl_json for layout-aware chunking with bbox
+            doc_chunk_chunk_size_tokens=512,  # Larger chunks to preserve paragraph structure
+            doc_chunk_chunk_overlap_tokens=50,  # Reasonable overlap
             doc_chunk_output_pageno_column_name="pageno",
             doc_chunk_output_bbox_column_name="bbox",
         ).transform()
