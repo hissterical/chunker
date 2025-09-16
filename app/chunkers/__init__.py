@@ -1,2 +1,3 @@
 from .paragraph_chunker import ParagraphChunker
 from .merged_paragraph_chunker import MergedParagraphChunker
+from .dpk_chunker import DpkChunker
